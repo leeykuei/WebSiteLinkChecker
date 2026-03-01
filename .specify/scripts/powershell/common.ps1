@@ -4,14 +4,21 @@
 function Get-RepoRoot {
     try {
         $result = git rev-parse --show-toplevel 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            return $result
+        if ($LASTEXITCODE -eq 0 -and $result) {
+            # Attempt to resolve the returned path to a proper Windows path. If Resolve-Path fails
+            # (e.g., due to encoding issues or invalid characters), fall back to script-based lookup.
+            try {
+                $resolved = Resolve-Path $result -ErrorAction Stop
+                return $resolved.Path
+            } catch {
+                # ignore and fall through to fallback
+            }
         }
     } catch {
         # Git command failed
     }
     
-    # Fall back to script location for non-git repos
+    # Fall back to script location for non-git repos or when git path contains invalid characters
     return (Resolve-Path (Join-Path $PSScriptRoot "../../..")).Path
 }
 
@@ -89,7 +96,9 @@ function Test-FeatureBranch {
 
 function Get-FeatureDir {
     param([string]$RepoRoot, [string]$Branch)
-    Join-Path $RepoRoot "specs/$Branch"
+    # Use Join-Path in two steps to avoid embedding path separators in a single string.
+    $specsRoot = Join-Path $RepoRoot 'specs'
+    return Join-Path $specsRoot $Branch
 }
 
 function Get-FeaturePathsEnv {
