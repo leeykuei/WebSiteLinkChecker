@@ -5,12 +5,12 @@
 
 ## Summary
 
-建立一個以 Python 為主的 CLI 工具 `link_checker.py`，輸入目標 URL 後自動擷取頁面上所有靜態與動態產生的連結，並以非同步並發方式檢查每個連結的 HTTP 回應。支援 Playwright 模式以擷取 JavaScript 動態渲染之連結，最終輸出 UTF-8 編碼的 CSV 報表並記錄結構化日誌。
+建立一個以 Python 為主的 CLI 工具 `link_checker.py`，輸入目標 URL 後自動擷取頁面上所有靜態與動態產生的連結，並以非同步並發方式檢查每個連結的 HTTP 回應。支援 Playwright 模式以擷取 JavaScript 動態渲染之連結，自動提取連結目標頁面的標題和麵包屑資訊，最終輸出格式化 Excel 報表並記錄結構化日誌。
 
 ## Technical Context
 
 **Language/Version**: Python 3.9+  
-**Primary Dependencies**: `aiohttp`, `asyncio`, `aiohttp_retry` (或自實作重試)、`playwright`、`yarl` 或 `urllib.parse`、`pytest`、`pydantic`（選用）  
+**Primary Dependencies**: `aiohttp`, `asyncio`, `playwright`, `openpyxl>=3.0.0`, `beautifulsoup4`, `pytest`  
 **Storage**: N/A (輸出檔案 CSV)  
 **Testing**: `pytest`，重點測試非同步程式與錯誤處理路徑  
 **Target Platform**: 跨平台（Windows / Linux）以 CLI 執行  

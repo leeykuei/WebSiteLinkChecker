@@ -12,10 +12,10 @@ _Status: all setup tasks complete; environment prepared and documentation copied
 
 1. **Configure Python environment**
    - Create and activate a virtualenv/conda as described in quickstart.
-   - Install dependencies from `requirements.txt`.
+   - Install dependencies from `requirements.txt` (includes `openpyxl>=3.0.0` for Excel output).
    - Run `playwright install` to ensure browsers are available (non-blocking).  
    - **Dependencies**: none.
-   - **Tests**: `python -c "import aiohttp, asyncio, playwright"` succeeds.
+   - **Tests**: `python -c "import aiohttp, asyncio, playwright, openpyxl"` succeeds.
    - **Parallel**: independent from any development.
 
 2. **Initialize repository tooling**
@@ -36,42 +36,33 @@ _Status: all setup tasks complete; environment prepared and documentation copied
 
 **Goal**: establish core utilities and data models used by all stories.
 
-_Status: configuration, models, logging, parser, and fetcher skeletons implemented and tested._
+_Status: configuration, models, logging, parser, fetcher, progress tracking, and Excel reporter implemented and tested._
 
 1. **Define data models & config structures**
-   - Implement `src/lib/config.py` with `Configuration` dataclass/pydantic model containing timeout, concurrency, retries, use_playwright, report_type.
-   - Implement `src/lib/models.py` (or within config) with `Link` and `CheckResult` dataclasses matching `data-model.md`.
-   - Add validation rules (e.g. absolute URL parsing).
+   - Implement `src/lib/config.py` with `Configuration` dataclass containing timeout, concurrency, retries, use_playwright, report_type.
+   - Report row structure matches 11-field Excel schema: Scan Time、Page Title、Breadcrumb、Page URL、Link Text、Link URL、HTTP Status、Result、Response Time、Source、Depth.
+   - Add validation rules (absolute URL parsing, Page URL conditional omission when equal to Link URL).
    - **Dependencies**: none
-   - **Parallel**: testers can start writing unit tests for validation.
-   - **Tests**: unit tests for model instantiation, URL parsing, invalid data raises errors.
+   - **Tests**: unit tests for model instantiation, URL parsing, field normalization, conditional Page URL omission.
 
-2. **Logging setup**
-   - In `src/lib/config.py` or a dedicated `logger.py`, configure `logging` to output structured JSON to console/file.
-   - Ensure different levels available and environment variable to change level.
+2. **Format conversion & normalization utilities**
+   - Helper functions for scan time formatting (YYYY-MM-DD HH:MM), result text ("OK" vs "Broken"), depth calculation from breadcrumb/URL path.
    - **Dependencies**: none.
-   - **Tests**: logger outputs valid JSON lines; level filtering works.
+   - **Tests**: unit tests for time formatting, status code to result mapping, depth calculation.
 
-3. **Utility for URL normalization**
-   - Implement helper to resolve relative URLs against base (use `yarl.URL` or `urllib.parse.urljoin`).
-   - **Tests**: unit tests covering relative, absolute, fragments.
-
-4. **HTTP client session wrapper**
-   - Create `lib/fetcher.py` skeleton with asynchronous session management, concurrency control, retry/backoff logic stubbed.
+3. **HTTP client & metadata fetching**
+   - Create `lib/fetcher.py` with `collect_link_statuses()` and `_fetch_target_page_metadata_map()` for async batch fetching.
+   - Fetch each successful link's target page to extract title, breadcrumb, and calculate depth.
+   - Use semaphore (max 5 concurrent) to avoid overwhelming target servers.
    - **Dependencies**: config models.
-   - **Tests**: stubbed tests verifying session created with correct limits; retry logic can be exercised with a local aiohttp test server.
-
-5. **Parser skeleton**
-   - `lib/parser.py` with functions `extract_links(html, base_url)` and an async variant for Playwright to fetch page then parse.
-   - **Dependencies**: config models, URL utils.
-   - **Tests**: static HTML samples; Playwright tests can be simple mock or real page if env.
+   - **Tests**: unit tests verifying batch fetching, semaphore limits, metadata extraction from mock responses.
 
 
 ---
 
 ## 🔗 Phase: User Story 1 – Basic static link validation (P1)
 
-_Status: core static-check engine implemented; CLI integration done; tests passing._
+_Status: core static-check engine implemented; CLI integration done; comprehensive report with 11 columns; per-link metadata enrichment; progress optimization; tests passing._
 
 **Goal**: fetch a page, parse `<a>` links, check each link’s HTTP status.
 
@@ -99,10 +90,13 @@ _Status: core static-check engine implemented; CLI integration done; tests passi
    - **Dependencies**: models.
    - **Tests**: assert fields correct given controlled inputs.
 
-5. **CSV reporting**\n   - Implement `lib/reporter.py` with a function to write CSV file given `CheckResult` and config output path.
-   - Include required columns and UTF‑8 encoding. Writer should optionally filter to failures when `report_type == 'failures'`.
-   - **Dependencies**: models.
-   - **Tests**: generate CSV from sample CheckResult; read back and assert correct rows & encoding.
+5. **Excel reporting**
+   - Implement `lib/reporter.py` with `write_excel()` function using openpyxl library.
+   - Support 11-column schema: Scan Time, Page Title, Breadcrumb, Page URL, Link Text, Link URL, HTTP Status, Result, Response Time, Source, Depth.
+   - Format header row (bold, blue background), auto-fit column widths (max 50).
+   - Omit Page URL when it equals Link URL (display as empty).
+   - **Dependencies**: openpyxl, models.
+   - **Tests**: generate Excel from sample data; read back and assert correct rows, encoding, formatting.
 
 6. **Tie into CLI main**
    - Wire steps: parse CLI -> fetch page -> extract links -> check links -> aggregate -> report -> log summary.
