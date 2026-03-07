@@ -32,6 +32,8 @@ htmlcov/
 *.swp
 *~
 .DS_Store
+Thumbs.db
+*.tmp
 
 # VSCode
 .vscode/

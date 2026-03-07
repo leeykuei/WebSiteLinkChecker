@@ -5,7 +5,7 @@
 範例：
 
 ```bash
-python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --concurrency 10 --timeout 10 --use-playwright false --report-type all --output report.csv
+python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --concurrency 10 --timeout 10 --use-playwright true --report-type all --output reports/report.csv
 ```
 
 參數說明：
@@ -15,10 +15,10 @@ python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --concu
 - `--max-retries` (optional): 最大重試次數，預設 3
 - `--use-playwright` (optional): 是否啟用 Playwright 模式以擷取動態連結，預設 false
 - `--report-type` (optional): `all` 或 `failures`，預設 `all`
-- `--output` (optional): CSV 輸出檔案路徑，預設 `report.csv`
+- `--output` (optional): CSV 輸出檔案路徑，預設 `report.csv`（建議指定 `reports/report.csv`）
 
 ## 輸出 CSV 欄位範例
-- `page_url`, `raw_href`, `absolute_url`, `status_code`, `elapsed_ms`, `error`
+- `Scan Time`, `Page Title`, `Breadcrumb`, `Page URL`, `Link Text`, `Link URL`, `HTTP Status`, `Result`, `Response Time`, `Source`, `Depth`
 
 ## JSON 範例（若需要機器介面）
 

@@ -73,3 +73,93 @@ python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --outpu
 
 ---
 **自動生成於**：2026-03-01
+
+---
+
+## 最新技術堆疊更新（002-realtime-progress 分支）
+
+### 即時進度可視化技術
+**Branch**: 002-realtime-progress  
+**Added**: 2026-03-07
+
+#### 新增技術組件
+- **ANSI 終端控制**: 使用 `\r` (carriage return) 和 `\033[K` (清除行尾) 實現單行進度覆寫
+- **事件驅動進度更新**: 基於 `asyncio` 的定時任務，預設 1 秒更新間隔
+- **進度狀態管理**: `ProgressState` 類別（使用 `asyncio.Lock` 確保線程安全）
+- **進度渲染器**: `ProgressRenderer` 類別（純函數式渲染邏輯）
+- **動態百分比計算**: `checked_links / discovered_links`（實時調整）
+- **線性 ETA 估算**: `(總耗時 / 已檢查數) × 剩餘數量`
+
+#### 新增 CLI 參數
+```bash
+--progress              # 啟用/禁用進度顯示（預設：true）
+--progress-interval     # 更新間隔秒數（預設：1.0）
+--progress-bar-width    # 進度條寬度（預設：20）
+--max-failures-display  # 最大失效連結顯示數（預設：50）
+--no-ansi               # 禁用 ANSI 跳脫序列（降級為追加新行）
+--show-current-url      # 顯示當前檢查的 URL（預設：true）
+--show-eta              # 顯示預估剩餘時間（預設：true）
+```
+
+#### 進度顯示格式示例
+```
+[=========>          ] 45% | 已檢查: 450/1000 | 失效: 12 | 用時: 02:15 | 剩餘: ~03:00
+```
+
+失效連結通知（追加新行）：
+```
+❌ 失效連結: https://example.com/broken (HTTP 404)
+⏱ 失效連結: https://example.com/timeout (連線逾時)
+```
+
+最終摘要：
+```
+檢查完成！
+----------
+總耗時: 05:30
+總連結數: 1000
+有效連結: 988
+失效連結: 12
+----------
+```
+
+#### 核心資料結構
+
+**ProgressState**（src/lib/progress.py）：
+- `discovered_pages`, `processed_pages`: 頁面數統計
+- `discovered_links`, `checked_links`: 連結數統計
+- `failed_links`: 失效連結計數
+- `current_page_url`, `current_link_url`: 當前檢查 URL
+- `failed_link_details: List[FailedLinkDetail]`: 失效連結清單
+- `to_snapshot() -> ProgressSnapshot`: 不可變快照生成
+
+**ProgressSnapshot**（不可變）：
+- 所有統計數據 + `progress_percentage` + `elapsed_seconds` + `estimated_remaining_seconds`
+
+**ProgressRenderer**：
+- `render_progress_line(snapshot) -> str`: 生成進度條字符串
+- `render_failed_link_notification(detail) -> str`: 格式化失效通知
+- `render_final_summary(snapshot) -> str`: 最終摘要
+- `_detect_ansi_support() -> bool`: 終端能力檢測
+
+#### 效能約束
+- 進度更新延遲 ≤ 1 秒（FR-017）
+- 進度顯示開銷 ≤ 5% 總執行時間（SC-013）
+- 統計準確性 100%（SC-009）
+- ETA 誤差 ≤ 30%（SC-012）
+
+#### 憲法合規性
+- **穩定性**：進度顯示失敗時降級為追加新行模式，不影響核心檢查功能；支援 Ctrl+C 中斷並保留部分結果
+- **詳細日誌**：進度輸出使用 `stdout`，日誌輸出使用 `stderr` 或文件，完全分離
+- **非同步優先**：進度更新使用 `asyncio.create_task()`，不阻塞主檢查邏輯
+
+#### 快速參考（新增規格文檔）
+- 規格：`specs/002-realtime-progress/spec.md`
+- 計劃：`specs/002-realtime-progress/plan.md`
+- 研究：`specs/002-realtime-progress/research.md`
+- 資料模型：`specs/002-realtime-progress/data-model.md`
+- CLI 合約：`specs/002-realtime-progress/contracts/cli.md`
+- 快速上手：`specs/002-realtime-progress/quickstart.md`
+
+---
+**最後更新**：2026-03-07（002-realtime-progress 分支）
