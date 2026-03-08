@@ -53,9 +53,7 @@ def _normalize_report_row(row: Dict) -> Dict[str, object]:
         depth = _compute_url_depth(str(link_url)) if link_url else 0
 
     page_url = row.get('page_url') or row.get('source_page_url') or ''
-    # 當 page_url 與 link_url 相同時，不顯示 page_url
-    if page_url == link_url:
-        page_url = ''
+    # 始終顯示 page_url，不論是否與 link_url 相同
 
 try:
     from openpyxl import Workbook
@@ -126,9 +124,7 @@ def _normalize_report_row(row: Dict) -> Dict[str, object]:
             depth = _compute_url_depth(str(link_url)) if link_url else 0
 
     page_url = row.get('page_url') or row.get('source_page_url') or ''
-    # 當 page_url 與 link_url 相同時，不顯示 page_url
-    if str(page_url).strip() == str(link_url).strip():
-        page_url = ''
+    # 始終顯示 page_url，不論是否與 link_url 相同
 
     return {
         'Scan Time': _format_scan_time(row),
