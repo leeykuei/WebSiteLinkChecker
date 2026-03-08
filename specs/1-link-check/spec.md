@@ -3,7 +3,7 @@
 **特性分支**：`1-link-check`  
 **建立日期**：2026-03-01  
 **狀態**：草稿  
-**輸入**：用戶描述："我需要一個 Python 程式，能輸入一個 URL，自動抓取該頁面所有的 <a> 標籤及可能是透過menu動態產生的連結，並檢查這些連結是否有效（回傳 200）。最後要能產出一份 CSV 報表記錄所有的失效連結與錯誤代碼。"
+**輸入**：用戶描述："我需要一個 Python 程式，能輸入一個 URL，自動抓取該頁面所有的 <a> 標籤及可能是透過 menu 動態產生的連結，並檢查這些連結是否有效（回傳 2xx）。最後要能產出一份 Excel 報表記錄檢查結果。"
 
 ## 使用者情景與測試 *(必填)*
 
@@ -41,19 +41,19 @@
 
 ### 使用者故事 3 - Excel 報表生成 (優先級：P2)
 
-用戶需要將連結檢查結果輸出為結構化的 Excel 格式報表，包含：掃描時間、頁面標題、麵包屑導航、頁面 URL、連結文字、連結 URL、HTTP 狀態碼、檢查結果、回應時間、來源頁面、深度。報表應易於在 Excel 等工具中開啟和分析，支援格式化（標題行加粗、背景著色）和自動欄寬調整。
+用戶需要將連結檢查結果輸出為結構化的 Excel（`.xlsx`）報表，欄位包含：
+`Scan Time`, `Page Title`, `Breadcrumb`, `Page URL`, `Link Text`, `Link URL`, `HTTP Status`, `Result`, `Response Time`, `Source`, `Depth`。
 
-**為何此優先級**：報表是使用者與檢查結果互動的主要方式，Excel 格式比 CSV 提供更好的可讀性和格式化能力，便於後續人工審查和文檔化。此功能與 P1 併行實現價值最高。
+**為何此優先級**：報表是使用者與檢查結果互動的主要方式，Excel 可讀性更高，且可直接篩選、排序與分享。此功能與 P1 併行實現價值最高。
 
-**獨立測試**：可以獨立測試 Excel 生成邏輯，驗證輸出格式、字符編碼、欄位完整性、格式化。
+**獨立測試**：可獨立測試 Excel 檔案生成邏輯，驗證欄位、格式、中文顯示與空值規則。
 
 **接受準則**：
 
-1. **Given** 檢查完成 N 個連結，**When** 生成報表，**Then** Excel 應包含標題行與 N 列資料，每列包含：Scan Time、Page Title、Breadcrumb、Page URL、Link Text、Link URL、HTTP Status、Result、Response Time、Source、Depth
-2. **Given** Page URL 與 Link URL 相同，**When** Excel 生成，**Then** Page URL 欄位應為空值（避免重複信息）
-3. **Given** 報表包含中文字符（「個人金融 > 貸款 > 特定金錢信託」等），**When** 儲存為 Excel，**Then** 應正確顯示中文，無亂碼
-4. **Given** 報表包含失效連結（HTTP != 200），**When** Excel 生成，**Then** Result 欄應清楚標註為「Broken」，便於篩選
-5. **Given** 報表生成，**When** Excel 開啟，**Then** 標題行應加粗及背景著色，各欄寬應自動調整以適應內容
+1. **Given** 檢查完成 N 個連結，**When** 生成報表，**Then** Excel 應包含 N 列資料，欄位與順序符合 11 欄定義
+2. **Given** 報表包含失效連結（HTTP 非 2xx），**When** 報表生成，**Then** `Result` 欄位應標註為 `Broken`
+3. **Given** 報表內容包含中文字符，**When** 儲存為 Excel，**Then** 應正確顯示，不可出現亂碼
+4. **Given** `Page URL` 與 `Link URL` 相同，**When** 報表生成，**Then** `Page URL` 欄位應留空，避免重複資訊
 
 ---
 
@@ -64,7 +64,7 @@
 - 當連結超時（>10 秒）時，應記錄為超時錯誤而不是持續等待
 - 當頁面包含相對連結（如 `/page`、`../resource`）時，應正確解析相對於基礎 URL 的絕對路徑
 - 當頁面的某個連結指向自身（如 `https://example.com/page#section`）時，應能正確驗證
-- 當連結目標頁面包含中文頁片標題和麵包屑時（如「個人金融 > 貸款 > 特定金錢信託受益權自行質借」），應正確提取並顯示於報表中
+- 當頁面 breadcrumb 來自 JavaScript 變數（如 `window.siteMap`）時，應能提取人類可讀的層級文字
 
 ## 需求 *(必填)*
 
@@ -77,8 +77,9 @@
 - **FR-005**：系統 MUST 支援可配置的 HTTP 請求 timeout（預設 10 秒，範圍 3-60 秒）
 - **FR-006**：系統 MUST 使用非同步方式並發檢查連結，支援可配置的並發數（預設 10，範圍 1-50）
 - **FR-007**：系統 MUST 可選地使用瀏覽器引擎（Playwright）執行 JavaScript，等待 DOM 完全載入後提取連結
-- **FR-008**：系統 MUST 將檢查結果輸出為 Excel（.xlsx）檔案，包含欄位：Scan Time、Page Title、Breadcrumb、Page URL*、Link Text、Link URL、HTTP Status、Result、Response Time、Source、Depth
-  - *當 Page URL 與 Link URL 相同時，Page URL 欄位省略（顯示空值）
+- **FR-008**：系統 MUST 將檢查結果輸出為 Excel（`.xlsx`）檔案
+- **FR-013**：系統 MUST 於報表輸出 11 欄位：`Scan Time`, `Page Title`, `Breadcrumb`, `Page URL`, `Link Text`, `Link URL`, `HTTP Status`, `Result`, `Response Time`, `Source`, `Depth`
+- **FR-014**：系統 MUST 在 `Page URL == Link URL` 時輸出空白 `Page URL` 欄位
 - **FR-009**：系統 MUST 記錄詳細的日誌到檔案和控制台，日誌層級包括 DEBUG、INFO、WARNING、ERROR、CRITICAL
 - **FR-010**：系統 MUST 支援相對 URL 的解析，轉換為絕對 URL 後檢查
 - **FR-011**：系統 MUST 跟隨 HTTP 重定向（301、302、307、308）並檢查最終目標
@@ -94,13 +95,13 @@
 
 ### 可測量的成果
 
-- **SC-001**：用戶能在 3 分鐘內完成包含 100 個靜態連結的頁面檢查（端到端，包括 CSV 生成）
+- **SC-001**：用戶能在 3 分鐘內完成包含 100 個靜態連結的頁面檢查（端到端，包括 Excel 生成）
 - **SC-002**：連結檢查成功率 ≥ 95%（能正確判斷有效/無效連結，根據實際 HTTP 狀態碼）
-- **SC-003**：CSV 報表內容完整性 100%（所有檢查結果都被記錄到報表中，無遺漏）
+- **SC-003**：Excel 報表內容完整性 100%（所有檢查結果都被記錄到報表中，無遺漏）
 - **SC-004**：系統能同時處理 10-50 個並發連結檢查，不發生連接池洩漏
 - **SC-005**：日誌記錄準確性 100%（每次連結檢查、重試、超時都被詳細記錄）
 - **SC-006**：系統開啟 JavaScript 檢測模式後，能識別 ≥ 90% 的動態渲染連結
-- **SC-007**：Excel 報表在 Excel 等工具中顯示正確（無亂碼、格式化完整、欄寬自動調整）
+- **SC-007**：Excel 報表能正確顯示中文內容（含頁名、breadcrumb），且可直接開啟篩選
 
 ## 假設 (Assumptions)
 
@@ -117,7 +118,7 @@
 - **問題 2（有效連結的 HTTP 狀態碼定義）**：接受所有 2xx 狀態碼視為有效（選擇：Q2: B）
   - 理由：寬鬆模式可涵蓋多種成功回應（例如 204、206），減少誤判，同時保留將來提供自訂狀態碼清單的彈性。
 
-- **問題 3（CSV 報表內容範圍）**：預設輸出完整報表（所有連結，選擇：Q3: A）
+- **問題 3（報表內容範圍）**：預設輸出完整報表（所有連結，選擇：Q3: A）
   - 理由：完整報表便於稽核與驗證；實作上亦可提供 `--report-type failures` 選項以只輸出失效連結。
 
 以上決議已替代先前的 [NEEDS CLARIFICATION] 標記，規格現已包含明確工具選擇與判定邏輯。

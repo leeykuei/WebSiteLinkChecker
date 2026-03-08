@@ -12,7 +12,7 @@ _Status: all setup tasks complete; environment prepared and documentation copied
 
 1. **Configure Python environment**
    - Create and activate a virtualenv/conda as described in quickstart.
-   - Install dependencies from `requirements.txt` (includes `openpyxl>=3.0.0` for Excel output).
+   - Install dependencies from `requirements.txt`（含 `openpyxl`）。
    - Run `playwright install` to ensure browsers are available (non-blocking).  
    - **Dependencies**: none.
    - **Tests**: `python -c "import aiohttp, asyncio, playwright, openpyxl"` succeeds.
@@ -91,20 +91,19 @@ _Status: core static-check engine implemented; CLI integration done; comprehensi
    - **Tests**: assert fields correct given controlled inputs.
 
 5. **Excel reporting**
-   - Implement `lib/reporter.py` with `write_excel()` function using openpyxl library.
-   - Support 11-column schema: Scan Time, Page Title, Breadcrumb, Page URL, Link Text, Link URL, HTTP Status, Result, Response Time, Source, Depth.
-   - Format header row (bold, blue background), auto-fit column widths (max 50).
-   - Omit Page URL when it equals Link URL (display as empty).
-   - **Dependencies**: openpyxl, models.
-   - **Tests**: generate Excel from sample data; read back and assert correct rows, encoding, formatting.
+   - Implement `lib/reporter.py` with `write_excel()` to output `.xlsx` with 11 fixed columns.
+   - Include conditional `Page URL` omission when `Page URL == Link URL`.
+   - Keep `report_type == 'failures'` filtering behavior.
+   - **Dependencies**: models, `openpyxl`.
+   - **Tests**: generate Excel from sample result; read back and assert rows, columns, and conditional blanking.
 
 6. **Tie into CLI main**
    - Wire steps: parse CLI -> fetch page -> extract links -> check links -> aggregate -> report -> log summary.
    - **Dependencies**: previous tasks.
-   - **Tests**: end‑to‑end test against a simple site fixture verifying CSV output and exit code 0.
+   - **Tests**: end‑to‑end test against a simple site fixture verifying Excel output and exit code 0.
 
 **Parallel Opportunities**:
-- While one developer builds the fetcher engine, another can flesh out parser and the CSV reporter.
+- While one developer builds the fetcher engine, another can flesh out parser and the Excel reporter.
 - Test cases can be written concurrently to the implementations since contracts are defined.
 
 **Independent Test Criteria**:
@@ -143,22 +142,22 @@ _Status: Playwright adapter implemented and integrated; dynamic links detected i
 
 ---
 
-## 📊 Phase: User Story 3 – CSV report generation (P2)
+## 📊 Phase: User Story 3 – Excel report generation (P2)
 
 _Status: reporter supports full output; filtering stub exists; tested._
 
 (Partially covered in Story 1 but polish here.)
 
 1. **Enhance reporter**
-   - Support `report_type` filtering, UTF-8 BOM option, configurable delimiter if needed.
-   - **Tests**: verify filtering; load output in pandas/`csv` to confirm encoding.
+   - Support `report_type` filtering and stable Excel schema output.
+   - **Tests**: verify filtering; load output with `openpyxl` to confirm columns and values.
 
 2. **CLI flag parsing for report type & output path**
    - Already included earlier; add validation.
    - **Tests**: passing invalid value raises error.
 
 3. **Edge cases**
-   - Handle case where no links found -> still create empty CSV with header.
+   - Handle case where no links found -> still create empty Excel with header.
    - Handle duplicate URLs gracefully (still list each occurrence).
    - **Tests**: specific scenarios.
 
@@ -192,6 +191,7 @@ _Status: documentation updated, README expanded, tests added. Additional polish 
    - Flesh out README with installation, examples, assumptions, and mention robots/ethical usage note.
    - Add comments & docstrings in code, especially for exported functions.
    - **Tests**: manual review; ensure README has quickstart steps.
+   - [X] Sync `spec.md`, `quickstart.md`, `plan.md`, `tasks.md`, `contracts/cli.md` to Excel output and current report schema.
 
 5. **Packaging & releases**
    - Optionally add `setup.py` or `pyproject.toml` if distributing as package.

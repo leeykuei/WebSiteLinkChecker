@@ -46,66 +46,18 @@ python src/link_checker.py \
 針對銀行網站等回應較慢的對象，調整以下參數：
 
 ```bash
-# 降低並發數、增加超時時間、減少重試次數
-python src/link_checker.py \
-  --url https://www.entiebank.com.tw/entie/home \
-  --output reports/report.csv \
-  --use-playwright true \
-  --concurrency 3 \
-  --timeout 15 \
-  --max-retries 2
+python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --output reports/report.xlsx --use-playwright true
 ```
 
-**參數說明**：
-- `--concurrency 3`: 同時檢查 3 個連結（預設 10）
-- `--timeout 15`: 每個請求 15 秒超時（預設 10）
-- `--max-retries 2`: 最多重試 2 次（預設 3）
+4. 預設輸出為 `report.xlsx`（Excel 格式）；若 `--output` 給 `.csv` 也會自動轉成 `.xlsx`。
 
-### 3.4 完整檢查範例（含進度顯示和詳細日誌）
+5. 報表欄位固定為：
+`Scan Time`, `Page Title`, `Breadcrumb`, `Page URL`, `Link Text`, `Link URL`, `HTTP Status`, `Result`, `Response Time`, `Source`, `Depth`。
+
+6. 失效連結專用報表範例：
 
 ```bash
-python src/link_checker.py \
-  --url https://www.entiebank.com.tw/entie/home \
-  --output reports/report.csv \
-  --use-playwright true \
-  --progress \
-  --progress-interval 1.0 \
-  --show-current-url \
-  --show-eta \
-  --max-failures-display 50 \
-  --logfile check.log
-```
-
-### 3.5 靜態模式（僅檢查頁面 HTML 中的連結）
-
-```bash
-# 不使用 Playwright，只提取靜態 HTML 中的連結（更快）
-python src/link_checker.py \
-  --url https://www.entiebank.com.tw/entie/home \
-  --output reports/report_static.csv \
-  --use-playwright false
-```
-
-4. 輸出說明：
-
-本文件範例皆輸出到 `reports/` 目錄（例如 `reports/report.csv`），欄位包含：
-- `Scan Time`: 掃描時間（例如 `2026-03-08 10:30`）
-- `Page Title`: 頁面名稱（`title` 或 `H1`）
-- `Breadcrumb`: 網站位置（麵包屑）
-- `Page URL`: 頁面網址
-- `Link Text`: 連結文字
-- `Link URL`: 被檢查的連結
-- `HTTP Status`: HTTP 狀態碼
-- `Result`: 檢查結果（`OK` / `Broken`）
-- `Response Time`: 回應時間（毫秒）
-- `Source`: 來源頁面（通常為頁面名稱）
-- `Depth`: 網站層級（以 URL path 深度估算）
-
-範例結果：
-```
-Scan Time,Page Title,Breadcrumb,Page URL,Link Text,Link URL,HTTP Status,Result,Response Time,Source,Depth
-2026-03-08 10:30,代收代繳服務,個人金融 > 存匯,https://www.entiebank.com.tw/entie/home,申請服務,https://www.entiebank.com.tw/entie/1_1_1,200,OK,520,payment page,3
-2026-03-08 10:30,代收代繳服務,個人金融 > 存匯,https://www.entiebank.com.tw/entie/home,客服中心,https://www.entiebank.com.tw/entie/missing,404,Broken,612,payment page,3
+python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --report-type failures --output reports/failures.xlsx
 ```
 
 註記：

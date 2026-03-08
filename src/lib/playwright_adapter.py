@@ -1,86 +1,71 @@
 """Playwright 適配器：啟動 headless 瀏覽器並擷取頁面中所有連結（繁體中文註解）"""
 from __future__ import annotations
 
-from typing import Dict, List
-import asyncio
+from typing import Any, Dict, List
 
 try:
     from playwright.async_api import async_playwright
-except Exception:
+except Exception:  # pragma: no cover
     async_playwright = None
 
 
 class PlaywrightFetchError(RuntimeError):
-    """Playwright 擷取流程的標準化例外。"""
-
-    def __init__(self, message: str, error_type: str = 'runtime'):
-        super().__init__(message)
-        self.error_type = error_type
+    """Playwright 擷取失敗。"""
 
 
-def _normalize_link_items(raw_items: list[dict]) -> List[Dict[str, str]]:
-    """整理 Playwright 回傳的連結項目並去重。"""
-    items: List[Dict[str, str]] = []
-    for raw in raw_items:
-        href = str(raw.get('href', '') or '').strip()
-        text = str(raw.get('text', '') or '').strip()
-        if not href:
+def _normalize_link_items(raw_items: Any) -> List[Dict[str, str]]:
+    output: List[Dict[str, str]] = []
+    seen: set[str] = set()
+
+    if not isinstance(raw_items, list):
+        return output
+
+    for item in raw_items:
+        if not isinstance(item, dict):
             continue
-        if href.startswith('javascript:') or href.startswith('mailto:'):
-            continue
-        if not (href.startswith('http://') or href.startswith('https://')):
-            continue
-        items.append({'url': href, 'text': text})
 
-    seen = set()
-    ordered: List[Dict[str, str]] = []
-    for item in items:
-        url = item['url']
+        url = str(item.get('url') or '').strip()
+        text = str(item.get('text') or '').strip()
+        if not url:
+            continue
+        if url.startswith('javascript:') or url.startswith('mailto:'):
+            continue
+        if not (url.startswith('http://') or url.startswith('https://')):
+            continue
         if url in seen:
             continue
+
         seen.add(url)
-        ordered.append(item)
-    return ordered
+        output.append({'url': url, 'text': text})
+
+    return output
 
 
-async def fetch_link_items_with_playwright(
-    url: str,
-    timeout: int = 15000,
-) -> List[Dict[str, str]]:
-    """使用 Playwright 載入頁面並回傳連結明細（url + text）。"""
+async def fetch_link_items_with_playwright(url: str, timeout: int = 15000) -> List[Dict[str, str]]:
+    """使用 Playwright 回傳 [{'url', 'text'}]。"""
     if async_playwright is None:
-        raise PlaywrightFetchError(
-            'Playwright 未安裝，請執行: pip install playwright && playwright install',
-            error_type='dependency',
-        )
+        raise PlaywrightFetchError('Playwright 未安裝，請執行: pip install playwright && playwright install')
 
-    browser = None
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
             await page.goto(url, wait_until='networkidle', timeout=timeout)
+
             raw_items = await page.evaluate(
                 """() => Array.from(document.querySelectorAll('a')).map((a) => ({
-                    href: a.href || '',
-                    text: (a.innerText || a.textContent || '').trim()
+                    url: a.href,
+                    text: (a.innerText || a.textContent || '').trim(),
                 }))"""
             )
-            if not isinstance(raw_items, list):
-                return []
-            return _normalize_link_items(raw_items)
-    except asyncio.TimeoutError as exc:
-        raise PlaywrightFetchError(f'Playwright 載入逾時: {url}', error_type='timeout') from exc
-    except Exception as exc:
-        raise PlaywrightFetchError(f'Playwright 執行失敗: {exc}', error_type='runtime') from exc
-    finally:
-        if browser is not None:
+
             await browser.close()
+            return _normalize_link_items(raw_items)
+    except Exception as exc:
+        raise PlaywrightFetchError(str(exc)) from exc
 
 
 async def fetch_links_with_playwright(url: str, timeout: int = 15000) -> List[str]:
-    """使用 Playwright 啟動 headless 瀏覽器，載入頁面並回傳發現的 href 清單。
-    若系統未安裝 Playwright 或未下載瀏覽器二進位檔，會拋出 Exception。
-    """
-    items = await fetch_link_items_with_playwright(url, timeout=timeout)
+    """向後相容：只回傳 URL 陣列。"""
+    items = await fetch_link_items_with_playwright(url=url, timeout=timeout)
     return [item['url'] for item in items]
