@@ -140,15 +140,17 @@ def write_excel(path: str | Path, rows: Iterable[Dict]) -> Path:
             ws.cell(row=row_num, column=col_idx, value=normalized[field])
         row_num += 1
 
-    # 自動調整欄寬（簡易版）
-    for col in ws.columns:
-        max_length = 0
-        letter = col[0].column_letter
-        for cell in col:
-            value = '' if cell.value is None else str(cell.value)
-            if len(value) > max_length:
-                max_length = len(value)
-        ws.column_dimensions[letter].width = min(max_length + 2, 50)
+    # 設定固定欄寬以提高性能（適合大量數據）
+    for col_letter in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']:
+        # 根據欄位性質設定合理寬度
+        width = 20  # 預設寬度
+        if col_letter in ['D', 'F']:  # Page URL, Link URL
+            width = 35
+        elif col_letter == 'E':  # Link Text
+            width = 25
+        elif col_letter == 'C':  # Breadcrumb
+            width = 30
+        ws.column_dimensions[col_letter].width = width
 
     wb.save(str(p))
     return p
