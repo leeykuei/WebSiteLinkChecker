@@ -18,7 +18,32 @@ pip install -r requirements.txt
 playwright install
 ```
 
-3. 範例執行：
+3. 執行範例：
+
+### 3.1 基礎範例（推薦 - 包含動態連結提取）
+
+```bash
+# 使用 Playwright 模式提取靜態 + 動態連結，並檢查所有連結
+python src/link_checker.py \
+  --url https://www.entiebank.com.tw/entie/home \
+  --output reports/report.csv \
+  --use-playwright true
+```
+
+### 3.2 快速測試範例（測試前 10 個連結）
+
+```bash
+# 在 Playwright 模式下只檢查前 10 個連結，適合快速測試
+python src/link_checker.py \
+  --url https://www.entiebank.com.tw/entie/home \
+  --output reports/report_quick.csv \
+  --use-playwright true \
+  --max-links 10
+```
+
+### 3.3 性能優化範例（針對高延遲網站）
+
+針對銀行網站等回應較慢的對象，調整以下參數：
 
 ```bash
 python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --output reports/report.xlsx --use-playwright true
@@ -35,6 +60,8 @@ python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --outpu
 python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --report-type failures --output reports/failures.xlsx
 ```
 
-註記：初次執行 Playwright 模式時會下載瀏覽器二進位檔，需耐心等待。
+註記：
+- 初次執行 Playwright 模式時會下載瀏覽器二進位檔，需耐心等待。
+- HEAD→GET 自動降級：當伺服器不支援 HEAD 請求時，工具會自動改用 GET 進行檢查，確保準確性。
 
 **Quickstart 完成**: 2026-03-01

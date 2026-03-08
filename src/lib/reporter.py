@@ -7,6 +7,55 @@ from typing import Dict, Iterable
 from urllib.parse import urlparse
 
 import csv
+from pathlib import Path
+from urllib.parse import urlparse
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
+
+
+def _compute_url_depth(url: str) -> int:
+    parsed = urlparse(url)
+    return len([segment for segment in parsed.path.split('/') if segment])
+
+
+def _build_result_text(status_code: object) -> str:
+    if status_code is None:
+        return 'Broken'
+    try:
+        code = int(status_code)
+    except (TypeError, ValueError):
+        return 'Broken'
+    return 'OK' if 200 <= code <= 299 else 'Broken'
+
+
+def _format_scan_time(row: Dict) -> str:
+    if row.get('scan_time'):
+        return str(row['scan_time'])
+
+    ts = row.get('check_timestamp')
+    if ts is None:
+        return ''
+    try:
+        return datetime.fromtimestamp(float(ts)).strftime('%Y-%m-%d %H:%M')
+    except (TypeError, ValueError, OSError):
+        return ''
+
+
+def _normalize_report_row(row: Dict) -> Dict[str, object]:
+    """轉換輸入列為新報表欄位。"""
+    link_url = row.get('link_url') or row.get('url') or row.get('absolute_url') or row.get('raw_href') or ''
+    status_code = row.get('http_status') if row.get('http_status') is not None else row.get('status_code')
+    result_text = row.get('result') or _build_result_text(status_code)
+    response_time = row.get('response_time') if row.get('response_time') is not None else row.get('elapsed_ms')
+    source = row.get('source') or row.get('source_page_url') or row.get('page_url') or ''
+    depth = row.get('depth')
+    if depth is None:
+        depth = _compute_url_depth(str(link_url)) if link_url else 0
+
+    page_url = row.get('page_url') or row.get('source_page_url') or ''
+    # 當 page_url 與 link_url 相同時，不顯示 page_url
+    if page_url == link_url:
+        page_url = ''
 
 try:
     from openpyxl import Workbook
