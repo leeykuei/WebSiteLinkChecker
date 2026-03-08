@@ -24,6 +24,12 @@ from lib.parser import (
 from lib.fetcher import collect_link_statuses
 from lib.reporter import write_excel
 from lib.playwright_adapter import PlaywrightFetchError, fetch_link_items_with_playwright
+from lib.progress import (
+    ProgressState,
+    ProgressRenderer,
+    ProgressDisplayConfig,
+    display_progress_loop,
+)
 
 
 def setup_logging(level: int = logging.INFO, logfile: str | None = None) -> None:
@@ -238,7 +244,39 @@ async def main() -> int:
 
     logger.info('共擷取到 %s 個連結', len(links))
 
-    results = await collect_link_statuses(links, cfg, source_page_url=args.url)
+    # 創建進度追蹤系統
+    progress_state = ProgressState()
+    progress_config = ProgressDisplayConfig(enabled=True, update_interval_seconds=0.5)
+    progress_renderer = ProgressRenderer(progress_config)
+    progress_stop_event = asyncio.Event()
+    
+    # 初始化進度
+    await progress_state.update_discovered_pages(1)
+    await progress_state.update_processed_pages(1)
+    await progress_state.update_discovered_links(len(links))
+    await progress_state.set_current_page(args.url)
+    
+    # 啟動進度顯示後台任務
+    progress_task = asyncio.create_task(
+        display_progress_loop(progress_state, progress_renderer, progress_stop_event)
+    )
+
+    try:
+        results = await collect_link_statuses(
+            links, 
+            cfg, 
+            source_page_url=args.url,
+            progress_state=progress_state,
+        )
+    finally:
+        # 停止進度顯示
+        progress_stop_event.set()
+        await progress_task
+        
+        # 顯示最終摘要
+        final_snapshot = await progress_state.snapshot()
+        summary = progress_renderer.render_final_summary(final_snapshot)
+        print(summary)
 
     # 針對成功連結抓取目標頁 metadata
     successful_urls: List[str] = []

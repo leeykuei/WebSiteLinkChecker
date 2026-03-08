@@ -1,7 +1,7 @@
 """非同步連結檢查與重試邏輯（繁體中文註解）"""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 import asyncio
 import logging
 import time
@@ -9,6 +9,9 @@ import time
 from aiohttp import ClientError, ClientSession
 
 from lib.config import Config
+
+if TYPE_CHECKING:
+    from lib.progress import ProgressState
 
 logger = logging.getLogger('link-checker.fetcher')
 
@@ -105,6 +108,7 @@ async def collect_link_statuses(
     links: List[str],
     cfg: Config,
     source_page_url: Optional[str] = None,
+    progress_state: Optional['ProgressState'] = None,
 ) -> List[Dict[str, Any]]:
     """並發收集所有連結狀態。"""
     if cfg.max_links is not None and cfg.max_links > 0:
@@ -127,6 +131,11 @@ async def collect_link_statuses(
 
         async def worker(url: str) -> None:
             async with semaphore:
+                # 標記開始檢查
+                if progress_state:
+                    await progress_state.start_checking_link()
+                    await progress_state.set_current_link(url)
+                
                 res = await _fetch_with_retries(
                     session,
                     url,
@@ -137,6 +146,16 @@ async def collect_link_statuses(
                 res['check_timestamp'] = time.time()
                 res['source_page_url'] = source_page_url
                 results.append(res)
+                
+                # 更新檢查結果
+                if progress_state:
+                    await progress_state.update_checked_link(
+                        url=url,
+                        status_code=res.get('status_code'),
+                        error_message=res.get('error'),
+                        source_page=source_page_url,
+                    )
+                
                 logger.debug('Checked %s -> %s', url, res.get('status_code'))
 
         tasks = [asyncio.create_task(worker(url)) for url in links]
