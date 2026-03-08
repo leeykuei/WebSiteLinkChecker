@@ -117,6 +117,63 @@ async def _fetch_static_page_data(url: str, timeout: int) -> Dict[str, object]:
     }
 
 
+async def _fetch_target_page_metadata_with_playwright(
+    urls: List[str],
+    timeout: int,
+    concurrency: int,
+) -> Dict[str, Dict[str, str]]:
+    """使用 Playwright 抓取目標頁面的 title/breadcrumb（支援動態內容）。"""
+    from playwright.async_api import async_playwright
+    
+    unique_urls: List[str] = []
+    seen: set[str] = set()
+    for url in urls:
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        unique_urls.append(url)
+
+    if not unique_urls:
+        return {}
+
+    metadata: Dict[str, Dict[str, str]] = {}
+    semaphore = asyncio.Semaphore(max(1, min(concurrency, 3)))  # 限制 Playwright 並發數
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        
+        async def worker(url: str) -> None:
+            async with semaphore:
+                try:
+                    page = await browser.new_page()
+                    await page.goto(url, wait_until='domcontentloaded', timeout=timeout * 1000)
+                    await page.wait_for_timeout(2000)  # 等待 JS 執行
+                    
+                    html = await page.content()
+                    final_url = page.url
+                    
+                    page_title, breadcrumb = extract_page_metadata_from_html(html, page_url=final_url)
+                    metadata[url] = {
+                        'page_url': final_url,
+                        'page_title': page_title,
+                        'breadcrumb': breadcrumb,
+                    }
+                    
+                    await page.close()
+                except Exception:
+                    # 失敗時使用 URL fallback
+                    metadata[url] = {
+                        'page_url': url,
+                        'page_title': '',
+                        'breadcrumb': _build_breadcrumb_from_url(url),
+                    }
+
+        await asyncio.gather(*(worker(url) for url in unique_urls))
+        await browser.close()
+
+    return metadata
+
+
 async def _fetch_target_page_metadata_map(
     urls: List[str],
     timeout: int,
@@ -288,7 +345,8 @@ async def main() -> int:
         except (TypeError, ValueError):
             continue
 
-    target_page_meta_by_url = await _fetch_target_page_metadata_map(
+    # 使用 Playwright 獲取目標頁面 metadata（支援動態內容的中文麵包屑）
+    target_page_meta_by_url = await _fetch_target_page_metadata_with_playwright(
         successful_urls,
         timeout=cfg.timeout_seconds,
         concurrency=cfg.concurrency,

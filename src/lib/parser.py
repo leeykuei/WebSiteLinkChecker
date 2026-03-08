@@ -115,18 +115,53 @@ def extract_page_metadata_from_html(html: str, page_url: str = '') -> Tuple[str,
         title = soup.find('h1').get_text(strip=True)
 
     breadcrumb = ''
-    breadcrumb_node = soup.select_one('nav.breadcrumb, [aria-label="breadcrumb"], .breadcrumb')
-    if breadcrumb_node:
-        parts = [x.strip() for x in breadcrumb_node.get_text(' ', strip=True).split() if x.strip()]
-        if parts:
-            breadcrumb = ' > '.join(parts)
+    # 優先使用動態渲染的麵包屑（支援 moduleBreadcrumbList）
+    breadcrumb_selectors = [
+        '[aria-label="breadcrumb"]',
+        '.moduleBreadcrumbList', 
+        'nav.breadcrumb',
+        '.breadcrumb',
+    ]
+    
+    for selector in breadcrumb_selectors:
+        breadcrumb_node = soup.select_one(selector)
+        if breadcrumb_node:
+            # 嘗試從 <a> 和 text nodes 提取麵包屑項目
+            items = []
+            for link in breadcrumb_node.find_all('a'):
+                text = link.get_text(strip=True)
+                if text:
+                    items.append(text)
+            
+            # 如果沒找到 <a> 標籤，嘗試從 <li> 提取
+            if not items:
+                for li in breadcrumb_node.find_all('li'):
+                    text = li.get_text(strip=True)
+                    # 移除 ">" 符號
+                    text = text.replace('>', '').strip()
+                    if text:
+                        items.append(text)
+            
+            # 如果還是沒有，使用原始方法
+            if not items:
+                full_text = breadcrumb_node.get_text(' ', strip=True)
+                # 嘗試用 ">" 分割
+                if '>' in full_text:
+                    items = [x.strip() for x in full_text.split('>') if x.strip()]
+                else:
+                    items = [x.strip() for x in full_text.split() if x.strip()]
+            
+            if items:
+                breadcrumb = ' > '.join(items)
+                break
 
     site_map = _decode_window_json_blob(html, 'siteMap')
     if site_map is None:
         site_map = _decode_window_json_blob(html, 'moduleListData')
     page_data = _decode_window_json_blob(html, 'pageData')
 
-    if page_url and site_map is not None:
+    # 只有在沒找到好的麵包屑時，才使用 siteMap fallback
+    if not breadcrumb and page_url and site_map is not None:
         crumbs = _find_sitemap_crumbs(site_map, page_url)
         if crumbs:
             breadcrumb = ' > '.join(crumbs)
