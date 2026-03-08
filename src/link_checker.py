@@ -12,6 +12,7 @@ import argparse
 import asyncio
 from datetime import datetime
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Dict, List
 from urllib.parse import urlparse
@@ -32,13 +33,83 @@ from lib.progress import (
 )
 
 
-def setup_logging(level: int = logging.INFO, logfile: str | None = None) -> None:
-    """設定結構化日誌（JSON 支援若安裝 python-json-logger）。"""
-    fmt = '%(asctime)s %(levelname)s %(name)s %(message)s'
-    handlers = [logging.StreamHandler()]
+class _DefaultLogExtraFilter(logging.Filter):
+    """確保結構化日誌欄位存在，避免 formatter 因缺欄位失敗。"""
+
+    EXTRA_FIELDS = (
+        'event',
+        'page_url',
+        'link_index',
+        'link_total',
+        'link_url',
+        'status_code',
+        'elapsed_ms',
+        'error',
+        'output_path',
+    )
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        for field in self.EXTRA_FIELDS:
+            if not hasattr(record, field):
+                setattr(record, field, None)
+        return True
+
+
+def _build_file_formatter() -> logging.Formatter:
+    """優先使用 JSON formatter；不可用時降級為文字格式。"""
+    try:
+        from pythonjsonlogger.json import JsonFormatter
+
+        return JsonFormatter(
+            '%(asctime)s %(levelname)s %(name)s %(message)s '
+            '%(event)s %(page_url)s %(link_index)s %(link_total)s '
+            '%(link_url)s %(status_code)s %(elapsed_ms)s %(error)s %(output_path)s'
+        )
+    except Exception:
+        return logging.Formatter(
+            '%(asctime)s %(levelname)s %(name)s %(message)s '
+            'event=%(event)s page_url=%(page_url)s '
+            'link_index=%(link_index)s link_total=%(link_total)s '
+            'link_url=%(link_url)s status_code=%(status_code)s '
+            'elapsed_ms=%(elapsed_ms)s error=%(error)s output_path=%(output_path)s'
+        )
+
+
+def setup_logging(
+    level: int = logging.INFO,
+    logfile: str | None = None,
+    log_max_bytes: int = 5 * 1024 * 1024,
+    log_backup_count: int = 3,
+) -> None:
+    """設定控制台與可輪替檔案日誌（支援結構化欄位）。"""
+    console_formatter = logging.Formatter(
+        '%(asctime)s %(levelname)s %(name)s %(message)s'
+    )
+
+    handlers: list[logging.Handler] = []
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(console_formatter)
+    handlers.append(console_handler)
+
     if logfile:
-        handlers.append(logging.FileHandler(logfile, encoding='utf-8'))
-    logging.basicConfig(level=level, format=fmt, handlers=handlers)
+        log_path = Path(logfile)
+        if log_path.parent and not log_path.parent.exists():
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        file_handler = RotatingFileHandler(
+            str(log_path),
+            maxBytes=max(1024, int(log_max_bytes)),
+            backupCount=max(1, int(log_backup_count)),
+            encoding='utf-8',
+        )
+        file_handler.setFormatter(_build_file_formatter())
+        handlers.append(file_handler)
+
+    extra_filter = _DefaultLogExtraFilter()
+    for handler in handlers:
+        handler.addFilter(extra_filter)
+
+    logging.basicConfig(level=level, handlers=handlers, force=True)
 
 
 def _bool_arg(value: str) -> bool:
@@ -70,6 +141,18 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--report-type', choices=['all', 'failures'], default='all', help='報表類型')
     parser.add_argument('--output', default='report.xlsx', help='Excel 輸出檔案路徑')
     parser.add_argument('--logfile', default=None, help='日誌檔案路徑 (可選)')
+    parser.add_argument(
+        '--log-max-bytes',
+        type=int,
+        default=5 * 1024 * 1024,
+        help='單一日誌檔最大位元組（預設 5MB，達上限自動輪替）',
+    )
+    parser.add_argument(
+        '--log-backup-count',
+        type=int,
+        default=3,
+        help='日誌輪替保留檔案數（預設 3）',
+    )
     parser.add_argument('--max-links', type=int, default=None, help='限制檢查連結數（可選）')
     parser.add_argument(
         '--progress',
@@ -280,11 +363,29 @@ async def main() -> int:
     parser = _build_parser()
     args = parser.parse_args()
 
-    setup_logging(logfile=args.logfile)
+    if args.log_max_bytes <= 0:
+        print('log-max-bytes 必須大於 0')
+        return 1
+    if args.log_backup_count <= 0:
+        print('log-backup-count 必須大於 0')
+        return 1
+
+    setup_logging(
+        logfile=args.logfile,
+        log_max_bytes=args.log_max_bytes,
+        log_backup_count=args.log_backup_count,
+    )
     logger = logging.getLogger('link-checker')
 
     if not _validate_url(args.url):
-        logger.error('無效的 URL 格式: %s', args.url)
+        logger.error(
+            '無效的 URL 格式: %s',
+            args.url,
+            extra={
+                'event': 'invalid_input_url',
+                'page_url': args.url,
+            },
+        )
         return 1
 
     cfg = Config(
@@ -310,7 +411,13 @@ async def main() -> int:
         logger.error(str(exc))
         return 1
 
-    logger.info('開始擷取連結', extra={'page': args.url})
+    logger.info(
+        '開始擷取連結',
+        extra={
+            'event': 'crawl_start',
+            'page_url': args.url,
+        },
+    )
 
     dynamic_link_items: List[Dict[str, str]] = []
     if cfg.use_playwright:
@@ -350,7 +457,15 @@ async def main() -> int:
     if cfg.max_links is not None and cfg.max_links > 0:
         links = links[: cfg.max_links]
 
-    logger.info('共擷取到 %s 個連結', len(links))
+    logger.info(
+        '共擷取到 %s 個連結',
+        len(links),
+        extra={
+            'event': 'crawl_links_ready',
+            'page_url': args.url,
+            'link_total': len(links),
+        },
+    )
 
     # 創建進度追蹤系統
     progress_state: ProgressState | None = None
@@ -468,9 +583,22 @@ async def main() -> int:
         report_rows = [r for r in report_rows if r.get('result') != 'OK']
 
     actual_output = write_excel(Path(args.output), report_rows)
-    logger.info('輸出報表：%s', actual_output)
+    logger.info(
+        '輸出報表：%s',
+        actual_output,
+        extra={
+            'event': 'report_written',
+            'page_url': args.url,
+            'output_path': str(actual_output),
+        },
+    )
     return 0
 
 
+def run() -> int:
+    """封裝同步進入點，供 console script 使用。"""
+    return asyncio.run(main())
+
+
 if __name__ == '__main__':
-    raise SystemExit(asyncio.run(main()))
+    raise SystemExit(run())

@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "website-link-checker"
+version = "0.1.0"
+description = "CLI tool for static and dynamic website link checking with Excel report output."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "aiohttp>=3.8.0",
+  "beautifulsoup4>=4.11.0",
+  "playwright>=1.20.0",
+  "python-json-logger>=2.0.2",
+  "openpyxl>=3.0.0",
+]
+
+[project.scripts]
+link-checker = "link_checker:run"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["link_checker"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["lib*"]
+namespaces = true

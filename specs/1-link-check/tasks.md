@@ -22,11 +22,11 @@ This document translates the specification, research, and plan into a phased set
 - [X] US3-1 Enhance reporter filtering and schema stability
 - [X] US3-2 Validate report-type and output path flags
 - [X] US3-3 Handle no-links and duplicate-link edge cases
-- [ ] Polish-1 Logging improvements (rotation / richer structured fields)
+- [X] Polish-1 Logging improvements (rotation / richer structured fields)
 - [X] Polish-2 Error handling and user-friendly CLI messages
 - [X] Polish-3 Performance tuning for large link sets (adaptive progress display)
 - [X] Polish-4 Documentation sync with current implementation
-- [ ] Polish-5 Packaging and release artifacts
+- [X] Polish-5 Packaging and release artifacts
 - [X] Polish-6 Additional tests (config/parser/progress smoke coverage)
 
 ---

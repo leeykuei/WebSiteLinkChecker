@@ -119,6 +119,16 @@ async def collect_link_statuses(
 
     results: List[Dict[str, Any]] = []
     semaphore = asyncio.Semaphore(cfg.concurrency)
+    total_links = len(links)
+
+    logger.info(
+        '開始檢查連結',
+        extra={
+            'event': 'link_check_start',
+            'page_url': source_page_url,
+            'link_total': total_links,
+        },
+    )
 
     headers = {
         'User-Agent': (
@@ -129,7 +139,7 @@ async def collect_link_statuses(
 
     async with ClientSession(headers=headers) as session:
 
-        async def worker(url: str) -> None:
+        async def worker(index: int, url: str) -> None:
             async with semaphore:
                 # 標記開始檢查
                 if progress_state:
@@ -155,10 +165,34 @@ async def collect_link_statuses(
                         error_message=res.get('error'),
                         source_page=source_page_url,
                     )
-                
-                logger.debug('Checked %s -> %s', url, res.get('status_code'))
 
-        tasks = [asyncio.create_task(worker(url)) for url in links]
+                logger.debug(
+                    '連結檢查完成',
+                    extra={
+                        'event': 'link_checked',
+                        'page_url': source_page_url,
+                        'link_index': index,
+                        'link_total': total_links,
+                        'link_url': url,
+                        'status_code': res.get('status_code'),
+                        'elapsed_ms': res.get('elapsed_ms'),
+                        'error': res.get('error'),
+                    },
+                )
+
+        tasks = [
+            asyncio.create_task(worker(index, url))
+            for index, url in enumerate(links, start=1)
+        ]
         await asyncio.gather(*tasks)
+
+    logger.info(
+        '連結檢查結束',
+        extra={
+            'event': 'link_check_end',
+            'page_url': source_page_url,
+            'link_total': total_links,
+        },
+    )
 
     return results

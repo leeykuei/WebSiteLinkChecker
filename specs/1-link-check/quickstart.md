@@ -18,7 +18,13 @@ pip install -r requirements.txt
 playwright install
 ```
 
-3. 執行範例：
+3. （可選）以可編輯模式安裝，啟用 `link-checker` 指令：
+
+```bash
+pip install -e .
+```
+
+4. 執行範例：
 
 ### 3.1 基礎範例（推薦 - 包含動態連結提取）
 
@@ -49,15 +55,27 @@ python src/link_checker.py \
 python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --output reports/report.xlsx --use-playwright true
 ```
 
-4. 預設輸出為 `report.xlsx`（Excel 格式）；若 `--output` 給 `.csv` 也會自動轉成 `.xlsx`。
+5. 預設輸出為 `report.xlsx`（Excel 格式）；若 `--output` 給 `.csv` 也會自動轉成 `.xlsx`。
 
-5. 報表欄位固定為：
+6. 報表欄位固定為：
 `Scan Time`, `Page Title`, `Breadcrumb`, `Page URL`, `Link Text`, `Link URL`, `HTTP Status`, `Result`, `Response Time`, `Source`, `Depth`。
 
-6. 失效連結專用報表範例：
+7. 失效連結專用報表範例：
 
 ```bash
 python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --report-type failures --output reports/failures.xlsx
+```
+
+8. 日誌輪替範例：
+
+```bash
+python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --output reports/report.xlsx --logfile logs/link-checker.log --log-max-bytes 1048576 --log-backup-count 5
+```
+
+9. 使用封裝後的命令（若已執行 `pip install -e .`）：
+
+```bash
+link-checker --url https://www.entiebank.com.tw/entie/home --output reports/report.xlsx --use-playwright true
 ```
 
 註記：

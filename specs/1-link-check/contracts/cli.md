@@ -17,6 +17,9 @@ python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --concu
 - `--report-type` (optional): `all` 或 `failures`，預設 `all`
 - `--output` (optional): 報表輸出路徑，預設 `report.xlsx`（若給 `.csv` 也會自動轉成 `.xlsx`）
 - `--max-links` (optional): 限制檢查連結數（測試用途）
+- `--logfile` (optional): 啟用檔案日誌輸出路徑
+- `--log-max-bytes` (optional): 單一日誌檔最大位元組數，預設 `5242880`（5MB）
+- `--log-backup-count` (optional): 日誌輪替保留數量，預設 `3`
 - `--progress` / `--no-progress` (optional): 是否啟用即時進度顯示，預設啟用
 - `--progress-interval` (optional): 進度更新間隔（秒），預設 `1.0`
 - `--progress-bar-width` (optional): 進度條寬度，範圍 `10-50`，預設 `20`

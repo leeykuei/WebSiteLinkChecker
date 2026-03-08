@@ -1,6 +1,6 @@
 # Link Checker — 快速說明（繁體中文）
 
-此工具會擷取指定頁面的超連結（含動態渲染），並以非同步方式檢查每個連結的 HTTP 回應，最終輸出 CSV 報表。
+此工具會擷取指定頁面的超連結（含動態渲染），並以非同步方式檢查每個連結的 HTTP 回應，最終輸出 Excel（`.xlsx`）報表。
 
 快速上手：
 
@@ -19,7 +19,7 @@ python src/link_checker.py \
 
 範例中的報表檔案預設輸出到 `reports/` 目錄。
 
-日誌：預設輸出到控制台，若使用 `--logfile` 會額外輸出到指定檔案。
+日誌：預設輸出到控制台，若使用 `--logfile` 會額外輸出到指定檔案，並支援輪替（rotating file）。
 
 注意：所有程式註解與文件使用繁體中文。
 
@@ -45,6 +45,8 @@ python src/link_checker.py \
 - `--no-ansi`：停用 ANSI 覆寫模式，改為純文字追加輸出
 - `--show-current-url` / `--no-show-current-url`：是否顯示目前 URL
 - `--show-eta` / `--no-show-eta`：是否顯示 ETA
+- `--log-max-bytes`：單一日誌檔大小上限（預設 `5MB`）
+- `--log-backup-count`：日誌輪替保留檔案數（預設 `3`）
 
 ### 範例
 
@@ -63,9 +65,21 @@ python src/link_checker.py --url https://example.com --output reports/report_no_
 
 # 禁用 ANSI（不支援 ANSI 的終端機）
 python src/link_checker.py --url https://example.com --output reports/report_no_ansi.csv --no-ansi
+
+# 啟用可輪替檔案日誌
+python src/link_checker.py --url https://example.com --output reports/report.xlsx --logfile logs/link-checker.log --log-max-bytes 1048576 --log-backup-count 5
 ```
 
 當標準輸出非互動式（例如輸出重導向）時，工具會自動停用進度覆寫模式，仍會正常輸出 CSV。
+
+## 封裝與命令
+
+專案已提供 `pyproject.toml`，可用可編輯模式安裝並使用 console script：
+
+```bash
+pip install -e .
+link-checker --url https://www.entiebank.com.tw/entie/home --output reports/report.xlsx --use-playwright true
+```
 
 ## 執行測試
 
