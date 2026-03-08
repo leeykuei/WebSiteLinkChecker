@@ -46,11 +46,12 @@ class ProgressDisplayConfig:
     enabled: bool = True
     update_interval_seconds: float = 1.0
     progress_bar_width: int = 20
-    max_url_display_length: int = 80
+    max_url_display_length: int = 60  # 縮短 URL 顯示長度
     max_failures_display: int = 50
     fallback_to_newline_mode: bool = False
     show_current_url: bool = True
     show_eta: bool = True
+    compact_mode_threshold: int = 50  # 超過此數量連結時使用精簡模式
 
 
 @dataclass
@@ -205,21 +206,40 @@ class ProgressRenderer:
         if snapshot.checking_links > 0:
             links_status += f" (檢查中: {snapshot.checking_links})"
         
+        # 判斷是否使用精簡模式（大量連結時）
+        is_compact_mode = snapshot.discovered_links >= self.config.compact_mode_threshold
+        
+        # 基本統計資訊（永遠顯示）
         parts: list[str] = [
             f"{bar} {snapshot.progress_percentage:>3.0f}%",
-            f"頁面: {snapshot.processed_pages}/{snapshot.discovered_pages}",
-            links_status,
-            f"失效: {snapshot.failed_links}",
-            f"用時: {self._format_time(snapshot.elapsed_seconds)}",
         ]
-        if self.config.show_eta and snapshot.estimated_remaining_seconds is not None:
-            parts.append(f"剩餘: ~{self._format_time(snapshot.estimated_remaining_seconds)}")
-
-        if self.config.show_current_url:
-            if snapshot.current_page_url:
-                parts.append(f"頁面URL: {self._truncate(snapshot.current_page_url)}")
-            if snapshot.current_link_url:
-                parts.append(f"連結URL: {self._truncate(snapshot.current_link_url)}")
+        
+        # 在精簡模式下，僅顯示核心統計
+        if is_compact_mode:
+            parts.extend([
+                links_status,
+                f"失效: {snapshot.failed_links}",
+                f"用時: {self._format_time(snapshot.elapsed_seconds)}",
+            ])
+            if self.config.show_eta and snapshot.estimated_remaining_seconds is not None:
+                parts.append(f"剩餘: ~{self._format_time(snapshot.estimated_remaining_seconds)}")
+        else:
+            # 詳細模式：顯示完整資訊
+            parts.extend([
+                f"頁面: {snapshot.processed_pages}/{snapshot.discovered_pages}",
+                links_status,
+                f"失效: {snapshot.failed_links}",
+                f"用時: {self._format_time(snapshot.elapsed_seconds)}",
+            ])
+            if self.config.show_eta and snapshot.estimated_remaining_seconds is not None:
+                parts.append(f"剩餘: ~{self._format_time(snapshot.estimated_remaining_seconds)}")
+            
+            # 只在詳細模式且啟用時顯示 URL
+            if self.config.show_current_url:
+                if snapshot.current_page_url:
+                    parts.append(f"頁面URL: {self._truncate(snapshot.current_page_url)}")
+                if snapshot.current_link_url:
+                    parts.append(f"連結URL: {self._truncate(snapshot.current_link_url)}")
 
         return " | ".join(parts)
 
@@ -270,6 +290,24 @@ class ProgressRenderer:
         max_len = max(20, self.config.max_url_display_length)
         if len(text) <= max_len:
             return text
+        
+        # 智能截斷：優先保留域名和路徑末端
+        if '://' in text:
+            try:
+                protocol, rest = text.split('://', 1)
+                if '/' in rest:
+                    domain, path = rest.split('/', 1)
+                    # 保留協議、域名和路徑末端
+                    available = max_len - len(protocol) - len(domain) - 7  # "://", "/", "..."
+                    if available > 10:
+                        path_parts = path.split('/')
+                        # 從末端開始保留路徑
+                        truncated_path = '/'.join(path_parts[-(available // 10):])
+                        return f"{protocol}://{domain}/.../{truncated_path}"
+            except Exception:
+                pass
+        
+        # 預設截斷方式
         return text[: max_len - 3] + "..."
 
 
@@ -278,14 +316,21 @@ async def display_progress_loop(
     renderer: ProgressRenderer,
     stop_event: asyncio.Event,
 ) -> None:
-    """定時輸出進度。
+    """定時輸出進度（支援動態調整更新頻率）。
 
     - 支援 ANSI 單行覆寫模式
     - 不支援時降級為追加新行模式
+    - 大量連結時自動降低更新頻率
     """
     last_line = ""
     while not stop_event.is_set():
         snapshot = await state.snapshot()
+        
+        # 動態調整更新間隔：大量連結時降低更新頻率
+        update_interval = renderer.config.update_interval_seconds
+        if snapshot.discovered_links >= renderer.config.compact_mode_threshold:
+            update_interval = min(2.0, update_interval * 2)  # 精簡模式下更新頻率降低
+        
         line = renderer.render_progress_line(snapshot)
 
         if renderer.supports_overwrite:
@@ -297,7 +342,7 @@ async def display_progress_loop(
                 last_line = line
 
         try:
-            await asyncio.wait_for(stop_event.wait(), timeout=renderer.config.update_interval_seconds)
+            await asyncio.wait_for(stop_event.wait(), timeout=update_interval)
         except asyncio.TimeoutError:
             continue
 
