@@ -79,7 +79,7 @@
 - **FR-007**：系統 MUST 可選地使用瀏覽器引擎（Playwright）執行 JavaScript，等待 DOM 完全載入後提取連結
 - **FR-008**：系統 MUST 將檢查結果輸出為 Excel（`.xlsx`）檔案
 - **FR-013**：系統 MUST 於報表輸出 11 欄位：`Scan Time`, `Page Title`, `Breadcrumb`, `Page URL`, `Link Text`, `Link URL`, `HTTP Status`, `Result`, `Response Time`, `Source`, `Depth`
-- **FR-014**：系統 MUST 在 `Page URL == Link URL` 時輸出空白 `Page URL` 欄位
+- **FR-014**：系統 MUST 在報表中一律輸出 `Page URL` 欄位值（即使與 `Link URL` 相同也不省略）
 - **FR-009**：系統 MUST 記錄詳細的日誌到檔案和控制台，日誌層級包括 DEBUG、INFO、WARNING、ERROR、CRITICAL
 - **FR-010**：系統 MUST 支援相對 URL 的解析，轉換為絕對 URL 後檢查
 - **FR-011**：系統 MUST 跟隨 HTTP 重定向（301、302、307、308）並檢查最終目標

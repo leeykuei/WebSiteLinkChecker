@@ -2,6 +2,33 @@
 
 This document translates the specification, research, and plan into a phased set of implementation tasks.  Phases are **setup**, **foundational**, one phase per user story, and **polish**.  Each task includes dependencies, opportunities for parallel work, test criteria, and implementation notes.
 
+## Task Checklist (Execution Tracking)
+
+- [X] Setup-1 Configure Python environment
+- [X] Setup-2 Initialize repository tooling
+- [X] Setup-3 Verify spec artifacts and task file
+- [X] Foundational-1 Define data models and config structures
+- [X] Foundational-2 Implement normalization utilities
+- [X] Foundational-3 Implement HTTP client and metadata fetching
+- [X] US1-1 CLI argument parsing
+- [X] US1-2 Static page fetch and link extraction
+- [X] US1-3 Concurrent link checking engine
+- [X] US1-4 Aggregate results into report rows
+- [X] US1-5 Excel reporting with fixed 11-column schema
+- [X] US1-6 Wire full CLI flow
+- [X] US2-1 Implement Playwright adapter
+- [X] US2-2 Integrate dynamic extraction path
+- [X] US2-3 Document Playwright dependency and usage
+- [X] US3-1 Enhance reporter filtering and schema stability
+- [X] US3-2 Validate report-type and output path flags
+- [X] US3-3 Handle no-links and duplicate-link edge cases
+- [ ] Polish-1 Logging improvements (rotation / richer structured fields)
+- [X] Polish-2 Error handling and user-friendly CLI messages
+- [X] Polish-3 Performance tuning for large link sets (adaptive progress display)
+- [X] Polish-4 Documentation sync with current implementation
+- [ ] Polish-5 Packaging and release artifacts
+- [X] Polish-6 Additional tests (config/parser/progress smoke coverage)
+
 ---
 
 ## 📦 Phase: Setup
@@ -41,9 +68,9 @@ _Status: configuration, models, logging, parser, fetcher, progress tracking, and
 1. **Define data models & config structures**
    - Implement `src/lib/config.py` with `Configuration` dataclass containing timeout, concurrency, retries, use_playwright, report_type.
    - Report row structure matches 11-field Excel schema: Scan Time、Page Title、Breadcrumb、Page URL、Link Text、Link URL、HTTP Status、Result、Response Time、Source、Depth.
-   - Add validation rules (absolute URL parsing, Page URL conditional omission when equal to Link URL).
+   - Add validation rules (absolute URL parsing, progress display parameters, output schema constraints).
    - **Dependencies**: none
-   - **Tests**: unit tests for model instantiation, URL parsing, field normalization, conditional Page URL omission.
+   - **Tests**: unit tests for model instantiation, URL parsing, field normalization, progress config validation.
 
 2. **Format conversion & normalization utilities**
    - Helper functions for scan time formatting (YYYY-MM-DD HH:MM), result text ("OK" vs "Broken"), depth calculation from breadcrumb/URL path.
@@ -92,10 +119,10 @@ _Status: core static-check engine implemented; CLI integration done; comprehensi
 
 5. **Excel reporting**
    - Implement `lib/reporter.py` with `write_excel()` to output `.xlsx` with 11 fixed columns.
-   - Include conditional `Page URL` omission when `Page URL == Link URL`.
+   - `Page URL` 欄位一律輸出實際值（不因與 `Link URL` 相同而省略）。
    - Keep `report_type == 'failures'` filtering behavior.
    - **Dependencies**: models, `openpyxl`.
-   - **Tests**: generate Excel from sample result; read back and assert rows, columns, and conditional blanking.
+   - **Tests**: generate Excel from sample result; read back and assert rows, columns, and `Page URL` always-present behavior.
 
 6. **Tie into CLI main**
    - Wire steps: parse CLI -> fetch page -> extract links -> check links -> aggregate -> report -> log summary.

@@ -71,6 +71,49 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--output', default='report.xlsx', help='Excel 輸出檔案路徑')
     parser.add_argument('--logfile', default=None, help='日誌檔案路徑 (可選)')
     parser.add_argument('--max-links', type=int, default=None, help='限制檢查連結數（可選）')
+    parser.add_argument(
+        '--progress',
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help='是否啟用即時進度顯示（預設啟用）',
+    )
+    parser.add_argument(
+        '--progress-interval',
+        type=float,
+        default=1.0,
+        help='進度更新間隔（秒，預設 1.0）',
+    )
+    parser.add_argument(
+        '--progress-bar-width',
+        type=int,
+        default=20,
+        help='進度條寬度（10-50）',
+    )
+    parser.add_argument(
+        '--max-failures-display',
+        type=int,
+        default=50,
+        help='即時顯示失效連結數上限（0-1000）',
+    )
+    parser.add_argument('--no-ansi', action='store_true', help='停用 ANSI 單行覆寫模式')
+    parser.add_argument(
+        '--show-current-url',
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help='是否顯示目前檢查 URL（預設顯示）',
+    )
+    parser.add_argument(
+        '--show-eta',
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help='是否顯示預估剩餘時間（預設顯示）',
+    )
+    parser.add_argument(
+        '--compact-mode-threshold',
+        type=int,
+        default=50,
+        help='連結數達門檻時啟用精簡進度模式（預設 50）',
+    )
     return parser
 
 
@@ -251,6 +294,14 @@ async def main() -> int:
         use_playwright=args.use_playwright,
         report_type=args.report_type,
         max_links=args.max_links,
+        progress=args.progress,
+        progress_interval_seconds=args.progress_interval,
+        progress_bar_width=args.progress_bar_width,
+        max_failures_display=args.max_failures_display,
+        no_ansi=args.no_ansi,
+        show_current_url=args.show_current_url,
+        show_eta=args.show_eta,
+        compact_mode_threshold=args.compact_mode_threshold,
     )
 
     try:
@@ -302,38 +353,55 @@ async def main() -> int:
     logger.info('共擷取到 %s 個連結', len(links))
 
     # 創建進度追蹤系統
-    progress_state = ProgressState()
-    progress_config = ProgressDisplayConfig(enabled=True, update_interval_seconds=0.5)
-    progress_renderer = ProgressRenderer(progress_config)
-    progress_stop_event = asyncio.Event()
-    
-    # 初始化進度
-    await progress_state.update_discovered_pages(1)
-    await progress_state.update_processed_pages(1)
-    await progress_state.update_discovered_links(len(links))
-    await progress_state.set_current_page(args.url)
-    
-    # 啟動進度顯示後台任務
-    progress_task = asyncio.create_task(
-        display_progress_loop(progress_state, progress_renderer, progress_stop_event)
-    )
+    progress_state: ProgressState | None = None
+    progress_renderer: ProgressRenderer | None = None
+    progress_stop_event: asyncio.Event | None = None
+    progress_task: asyncio.Task[None] | None = None
+    if cfg.progress:
+        progress_state = ProgressState()
+        progress_config = ProgressDisplayConfig(
+            enabled=cfg.progress,
+            update_interval_seconds=cfg.progress_interval_seconds,
+            progress_bar_width=cfg.progress_bar_width,
+            max_failures_display=cfg.max_failures_display,
+            fallback_to_newline_mode=cfg.no_ansi,
+            show_current_url=cfg.show_current_url,
+            show_eta=cfg.show_eta,
+            compact_mode_threshold=cfg.compact_mode_threshold,
+        )
+        progress_renderer = ProgressRenderer(progress_config)
+        progress_stop_event = asyncio.Event()
+
+        # 初始化進度
+        await progress_state.update_discovered_pages(1)
+        await progress_state.update_processed_pages(1)
+        await progress_state.update_discovered_links(len(links))
+        await progress_state.set_current_page(args.url)
+
+        # 啟動進度顯示後台任務
+        progress_task = asyncio.create_task(
+            display_progress_loop(progress_state, progress_renderer, progress_stop_event)
+        )
 
     try:
         results = await collect_link_statuses(
-            links, 
-            cfg, 
+            links,
+            cfg,
             source_page_url=args.url,
             progress_state=progress_state,
         )
     finally:
         # 停止進度顯示
-        progress_stop_event.set()
-        await progress_task
-        
+        if progress_stop_event is not None:
+            progress_stop_event.set()
+        if progress_task is not None:
+            await progress_task
+
         # 顯示最終摘要
-        final_snapshot = await progress_state.snapshot()
-        summary = progress_renderer.render_final_summary(final_snapshot)
-        print(summary)
+        if progress_state is not None and progress_renderer is not None:
+            final_snapshot = await progress_state.snapshot()
+            summary = progress_renderer.render_final_summary(final_snapshot)
+            print(summary)
 
     # 針對成功連結抓取目標頁 metadata
     successful_urls: List[str] = []

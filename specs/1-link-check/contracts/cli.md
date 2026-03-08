@@ -17,6 +17,14 @@ python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --concu
 - `--report-type` (optional): `all` 或 `failures`，預設 `all`
 - `--output` (optional): 報表輸出路徑，預設 `report.xlsx`（若給 `.csv` 也會自動轉成 `.xlsx`）
 - `--max-links` (optional): 限制檢查連結數（測試用途）
+- `--progress` / `--no-progress` (optional): 是否啟用即時進度顯示，預設啟用
+- `--progress-interval` (optional): 進度更新間隔（秒），預設 `1.0`
+- `--progress-bar-width` (optional): 進度條寬度，範圍 `10-50`，預設 `20`
+- `--max-failures-display` (optional): 即時顯示失效連結上限，範圍 `0-1000`，預設 `50`
+- `--no-ansi` (optional): 停用 ANSI 單行覆寫模式
+- `--show-current-url` / `--no-show-current-url` (optional): 是否顯示目前檢查 URL，預設顯示
+- `--show-eta` / `--no-show-eta` (optional): 是否顯示預估剩餘時間，預設顯示
+- `--compact-mode-threshold` (optional): 連結數達門檻時切換精簡顯示，預設 `50`
 
 ## 輸出 Excel 欄位（固定 11 欄）
 - `Scan Time`
@@ -32,7 +40,7 @@ python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --concu
 - `Depth`
 
 規則：
-- 當 `Page URL == Link URL` 時，`Page URL` 欄位輸出空值。
+- `Page URL` 欄位一律輸出實際值（即使與 `Link URL` 相同也不省略）。
 - `Result` 欄位：HTTP 2xx 為 `OK`，其餘為 `Broken`。
 
 ## JSON 範例（若需要機器介面）
