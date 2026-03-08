@@ -5,13 +5,13 @@
 
 ## Summary
 
-建立一個以 Python 為主的 CLI 工具 `link_checker.py`，輸入目標 URL 後自動擷取頁面上所有靜態與動態產生的連結，並以非同步並發方式檢查每個連結的 HTTP 回應。支援 Playwright 模式以擷取 JavaScript 動態渲染之連結，最終輸出 UTF-8 編碼的 CSV 報表並記錄結構化日誌。
+建立一個以 Python 為主的 CLI 工具 `link_checker.py`，輸入目標 URL 後自動擷取頁面上所有靜態與動態產生的連結，並以非同步並發方式檢查每個連結的 HTTP 回應。支援 Playwright 模式以擷取 JavaScript 動態渲染之連結，並補抓目標頁 metadata（title、breadcrumb、depth），最終輸出 Excel（`.xlsx`）報表並記錄結構化日誌。
 
 ## Technical Context
 
 **Language/Version**: Python 3.9+  
-**Primary Dependencies**: `aiohttp`, `asyncio`, `aiohttp_retry` (或自實作重試)、`playwright`、`yarl` 或 `urllib.parse`、`pytest`、`pydantic`（選用）  
-**Storage**: N/A (輸出檔案 CSV)  
+**Primary Dependencies**: `aiohttp`, `asyncio`, `beautifulsoup4`, `playwright`, `openpyxl`, `pytest`  
+**Storage**: N/A（輸出檔案 `.xlsx`）  
 **Testing**: `pytest`，重點測試非同步程式與錯誤處理路徑  
 **Target Platform**: 跨平台（Windows / Linux）以 CLI 執行  
 **Project Type**: CLI 工具 + 可選 headless 瀏覽器擷取模組  
@@ -67,7 +67,7 @@ Deliverable: `research.md`（已由 Phase 0 生成）
 
 Deliverables:
 - `data-model.md`（連結、檢查結果、配置）
-- `contracts/cli.md`（CLI 介面定義與 JSON/CSV 報表範例）
+- `contracts/cli.md`（CLI 介面定義與 JSON/Excel 報表範例）
 - `quickstart.md`（安裝、執行範例）
 
 ## Risks

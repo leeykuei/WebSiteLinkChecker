@@ -21,10 +21,19 @@ playwright install
 3. 範例執行：
 
 ```bash
-python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --output report.csv
+python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --output reports/report.xlsx --use-playwright true
 ```
 
-4. 預設會輸出 `report.csv`，欄位包含：`page_url, raw_href, absolute_url, status_code, elapsed_ms, error`。
+4. 預設輸出為 `report.xlsx`（Excel 格式）；若 `--output` 給 `.csv` 也會自動轉成 `.xlsx`。
+
+5. 報表欄位固定為：
+`Scan Time`, `Page Title`, `Breadcrumb`, `Page URL`, `Link Text`, `Link URL`, `HTTP Status`, `Result`, `Response Time`, `Source`, `Depth`。
+
+6. 失效連結專用報表範例：
+
+```bash
+python src/link_checker.py --url https://www.entiebank.com.tw/entie/home --report-type failures --output reports/failures.xlsx
+```
 
 註記：初次執行 Playwright 模式時會下載瀏覽器二進位檔，需耐心等待。
 
